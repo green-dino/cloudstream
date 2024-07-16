@@ -1,15 +1,6 @@
 #!/bin/bash
 ##########
-# Copyright Unidata 2016 All Rights Reserved
-#
-# This script is part of the unidata/cloudstream Docker image.
-#
-# It sets up a VNC session accessible via a webbrowser using noVNC and
-# then executes start.sh, if available.
-#
-# Instructions for use are at https://github.com/Unidata/cloudstream.
-#
-# Copyright Unidata 2015 http://www.unidata.ucar.edu
+#Boostrap sh
 ##########
 
 set -e
@@ -69,6 +60,12 @@ if [ "x${VERSION}" != "x" ]; then
     exit
 fi
 
+# Ensure necessary environment variables are set
+if [[ -z "${CUSER}" ]]; then
+    echo "CUSER environment variable is not set. Exiting."
+    exit 1
+fi
+
 ###
 # Determine if we're using SSL Only.
 ###
@@ -81,6 +78,18 @@ fi
 # Remove .x11 lock just in case there is one.
 ###
 sudo rm -rf /tmp/.X1-lock
+
+# Ensure /tmp/.X11-unix exists with correct permissions
+if [[ ! -d /tmp/.X11-unix ]]; then
+    sudo mkdir -p /tmp/.X11-unix
+    sudo chmod 1777 /tmp/.X11-unix
+fi
+
+# Install xterm if not present
+if ! command -v xterm &> /dev/null; then
+    echo "xterm could not be found, installing..."
+    sudo apt-get update && sudo apt-get install -y xterm
+fi
 
 ###
 # Set up vnc to use a password if USEPASS is non-empty.
@@ -103,14 +112,15 @@ fi
 xinit -- /usr/bin/Xvfb :1 -screen 0 $SIZEW\x$SIZEH\x$CDEPTH &
 sleep 5
 
-export DISPLAY=localhost:1
+#export DISPLAY=localhost:1
+export DISPLAY=:0
 
 ##
 # Invoke noVNC
 ##
 cd /home/${CUSER}/noVNC/utils && openssl req -new -x509 -days 365 -nodes -out self.pem -keyout self.pem -batch
 cd ~
-/home/${CUSER}/noVNC/utils/launch.sh ${SSLOP} --vnc 127.0.0.1:5901 &
+/home/${CUSER}/noVNC/utils/novnc_proxy ${SSLOP} --vnc 127.0.0.1:5901 &
 
 echo ""
 echo ""
